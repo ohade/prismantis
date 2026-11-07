@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { engineIsDrawn, expect, test } from './testing'
 
 import { remember } from '../hooks/render'
 
@@ -35,16 +35,13 @@ test('the terminal is looked up once, not on every prompt', async ($, on) => {
 const call = (id: string) => ({ tool_use_id: id, tool: 'Read', input: { file_path: '/tmp/x' }, isRunning: false, isErrored: false, isInterrupted: false })
 
 test('only the 500 most recently expanded tool calls stay expanded', async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const ids = Array.from({ length: 501 }, (_, i) => `bounded-${i}`)
   const group = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolGroup', props: { calls: ids.map(call), isActive: false, isExpanded: true } })
   await group.unmount()
   const isEngine = async (id: string) => {
     const ui = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: { ...call(id), output: { stdout: 'file' } } })
-    const found = (await ui.find({ type: 'Text', text: /^engine$/ })) !== undefined
+    const found = await engineIsDrawn(ui)
     await ui.unmount()
     return found
   }

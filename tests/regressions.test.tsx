@@ -1,6 +1,6 @@
 import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test } from './testing'
 
 import { helpText, setupParts, setupText, showcaseText } from '../hooks/help'
 import { inlineText, parse } from '../hooks/markdown'
@@ -1155,7 +1155,7 @@ for (const columns of [120, 34]) {
       const el = $.ui.resolve(e)
       drawnPlain = renderBlocks(el, plain, blocks, columns)
       drawnLinked = renderBlocks(el, { ...plain, fileLinks: 'file://', pathLinks: true }, blocks, columns)
-      return <el.Text>engine</el.Text>
+      return { type: 'engine', ref: 0 }
     })
     const ui = await $.ui.mount(mount(''))
     await ui.unmount()
@@ -2398,7 +2398,7 @@ test('a clickable Bash-edits diff keeps its linked file title as text, since a B
     const el = $.ui.resolve(e)
     const fold = (_id: string, _hidden: number, key: string) => ({ folded: true, faced: false, element: <el.Button key={key} label="more" onPress={() => {}} />, around: (r: never) => <el.Button key={`${key}.rows`} plain label="more" onPress={() => {}}>{r}</el.Button> })
     drawn = renderBashEdits(el, style, { files: [{ kind: 'modified', path: '/work/app/src/a.ts', rows }], more: 0, shared: false }, fold as never, 'x')
-    return <el.Text>engine</el.Text>
+    return { type: 'engine', ref: 0 }
   })
   const ui = await $.ui.mount(mount('')).catch(() => undefined)
   if (!ui) return

@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test } from './testing'
 
 import { pieRgba } from '../hooks/charts'
 import { showcaseText } from '../hooks/help'

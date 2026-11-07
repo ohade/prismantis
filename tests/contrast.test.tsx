@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, test } from './testing'
 
 import { PRESET_BACKGROUNDS, PRESETS } from '../hooks/presets'
 import { BAND_STEP, contrast, diffTint, onTint, previewBand } from '../hooks/render'

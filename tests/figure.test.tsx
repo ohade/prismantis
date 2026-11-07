@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, test } from 'claude-code/testing'
+import { expect, test } from './testing'
 
 import { FIGURE_GLYPHS, FIGURE_HINT, FIGURE_MAX_COLUMNS, FIGURE_MAX_LINES, FIGURE_SAFE_COLUMNS, checkFigure, figureRoleColors, figureRuns, figureText, isFigureLang, reframe } from '../hooks/figure'
 import { FIGURE_ROLES } from '../hooks/markdown'
@@ -256,10 +256,7 @@ test('every glyph the figure hint offers passes the checker', () => {
 })
 
 const engine = (on: On) =>
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
 
 const reply = (text: string, surface: 'terminal' | 'desktop' = 'terminal', columns = 120) => ({
   plugin: 'prismantis',

@@ -1,5 +1,5 @@
 import type { Engine } from 'claude-code/testing'
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test } from './testing'
 
 import type { ClipboardBackend } from '../hooks/clipboard'
 import { clipboardCommand } from '../hooks/clipboard'

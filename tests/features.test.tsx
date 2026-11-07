@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, mock, test } from 'claude-code/testing'
+import { engineIsDrawn, expect, mock, test } from './testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { clockText, endedAt, sentAt } from '../hooks/clock'
@@ -22,10 +22,7 @@ const engine = (on: On) => {
     const { Button, Text } = $.ui.resolve(e)
     return <Button plain label={BUTTON_PROBE} onPress={() => undefined}><Text>{BUTTON_PROBE}</Text></Button>
   })
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
 }
 
 const call = (tool: string, input: unknown, id: string) => ({ tool_use_id: id, tool, input, isRunning: false, isErrored: false, isInterrupted: false })
@@ -200,7 +197,7 @@ test('toolOutput quiet labels skills and PowerShell, and hides the skill result'
     const skill = await $.ui.mount({ plugin: 'prismantis', surface, component: 'ToolUse', props: call('Skill', { skill: 'kolibee:do-review', args: '--branch' }, `s-${surface}`) })
     expect(await skill.find({ type: 'Text', text: /^Loaded skill kolibee:do-review --branch$/ })).toBeDefined()
     const done = await $.ui.mount({ plugin: 'prismantis', surface, component: 'ToolResult', props: { tool_use_id: `s-${surface}`, tool: 'Skill', output: 'Successfully loaded skill', isErrored: false } })
-    expect(await done.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(done)).toBe(false)
     await done.unmount()
     await skill.unmount()
     const pwsh = await $.ui.mount({ plugin: 'prismantis', surface, component: 'ToolUse', props: call('PowerShell', { command: 'cat C:\\Users\\me\\notes.md' }, `p-${surface}`) })
@@ -214,7 +211,7 @@ test('toolOutput quiet leaves background and image shell results to the engine',
   for (const [id, output] of [['b-1', { stdout: '', stderr: '', backgroundTaskId: 'task-7' }], ['b-2', { stdout: 'iVBORw0KGgo', stderr: '', isImage: true }], ['b-3', { stdout: 'partial', stderr: '', interrupted: true }]] as const) {
     const use = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolUse', props: call('Bash', { command: 'make watch' }, id) })
     const out = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'ToolResult', props: { tool_use_id: id, tool: 'Bash', output, isErrored: false } })
-    expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+    expect(await engineIsDrawn(out)).toBe(true)
     await out.unmount()
     await use.unmount()
   }
@@ -235,7 +232,7 @@ test('toolOutput quiet hides the result of read-only calls only', { options: { t
     const [use, res] = result(tool, input, id)
     const row = await $.ui.mount(use)
     const out = await $.ui.mount(res)
-    expect((await out.find({ type: 'Text', text: /^engine$/ })) !== undefined).toBe(shown)
+    expect(await engineIsDrawn(out)).toBe(shown)
     if (!shown) expect(await out.find({ type: 'Text', text: /file contents/ })).toBeUndefined()
     await out.unmount()
     await row.unmount()
@@ -251,7 +248,7 @@ test('toolOutput quiet shows why a call failed instead of only its exit code', {
     props: { tool_use_id: 'e-1', tool: 'Bash', output: 'Error: Exit code 1\ncat: missing.txt: No such file or directory', isErrored: true },
   })
   expect(await out.find({ type: 'Text', text: /No such file or directory$/ })).toBeDefined()
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(out)).toBe(false)
   await out.unmount()
 })
 
@@ -263,7 +260,7 @@ test('toolOutput quiet hands a failed call back to the engine in the ctrl+o tran
     component: 'ToolUse',
     props: { ...call('Bash', { command: 'false' }, 'fx-1'), isErrored: true, ...{ isExpanded: true }, output: 'Exit code 1\nerror: boom' } as never,
   })
-  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(row)).toBe(true)
   await row.unmount()
   const out = await $.ui.mount({
     plugin: 'prismantis',
@@ -271,7 +268,7 @@ test('toolOutput quiet hands a failed call back to the engine in the ctrl+o tran
     component: 'ToolResult',
     props: { tool_use_id: 'fx-1', tool: 'Bash', output: 'Error: Exit code 1\nerror: boom', isErrored: true, ...{ isExpanded: true } } as never,
   })
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(out)).toBe(true)
   await out.unmount()
   const back = await $.ui.mount({
     plugin: 'prismantis',
@@ -279,7 +276,7 @@ test('toolOutput quiet hands a failed call back to the engine in the ctrl+o tran
     component: 'ToolUse',
     props: { ...call('Bash', { command: 'false' }, 'fx-1'), isErrored: true, ...{ isExpanded: false }, output: 'Exit code 1\nerror: boom' } as never,
   })
-  expect(await back.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(back)).toBe(false)
   await back.unmount()
 })
 
@@ -320,7 +317,7 @@ test('toolOutput quiet shows the full reason of a refused call, wrapped and not 
   const text = await out.find({ type: 'Text', text: /Reason: Blocked by classifier\. If you have other tasks/ })
   expect(text).toBeDefined()
   expect(text?.props.wrap).toBe('wrap')
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(out)).toBe(false)
   await out.unmount()
 })
 
@@ -352,7 +349,7 @@ test('toolOutput quiet draws shell results itself, a few lines and no approval l
   expect(await out.find({ type: 'Text', text: /^one$/ })).toBeDefined()
   expect(await out.find({ type: 'Text', text: /^four$/ })).toBeUndefined()
   expect(await out.find({ type: 'Text', text: /^… \+2 lines$/ })).toBeDefined()
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(out)).toBe(false)
   await out.unmount()
   await use.unmount()
 })
@@ -362,7 +359,7 @@ test('toolOutput full leaves every result to the engine', async ($, on) => {
   const [use, res] = result('Bash', { command: 'sed -n 1,20p app.py' }, 'f-1')
   const row = await $.ui.mount(use)
   const out = await $.ui.mount(res)
-  expect(await out.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(out)).toBe(true)
   await out.unmount()
   await row.unmount()
 })
@@ -386,7 +383,7 @@ test('expanded non-shell rows go back to the engine so their output shows', asyn
     component: 'ToolUse',
     props: { ...call('Read', { file_path: '/tmp/x' }, 'exp-1'), output: { stdout: 'file' } },
   })
-  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(row)).toBe(true)
   await row.unmount()
 })
 
@@ -526,7 +523,7 @@ test('slash command output renders as markdown, errors stay native', async ($, o
   expect((await ok.find({ type: 'Text', text: /^a$/ }))?.props.color).toBe(t.tableHeader)
   await ok.unmount()
   const bad = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'CommandOutput', props: { command: 'cost', args: '', text: 'boom', isErrored: true } })
-  expect(await bad.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(bad)).toBe(true)
   await bad.unmount()
 })
 
@@ -708,7 +705,7 @@ test('a full reply draws every element itself, with the right copy buttons', asy
     props: { text: FULL, isFirstOfReply: true },
     viewport: { columns: 200, rows: 60 },
   })
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(ui)).toBe(false)
   expect((await ui.find({ type: 'Text', text: /^Name$/ }))?.props.color).toBe(t.tableHeader)
   const labels = (await ui.findAll({ type: 'Button' })).map(b => b.props.label)
   expect(labels.filter(l => l === '⧉ copy').length).toBe(4)
@@ -1397,7 +1394,7 @@ test('promptStyle chevron draws a bold accent prompt', { options: { promptStyle:
 test('promptStyle off and task notifications keep the engine look', { options: { promptStyle: 'off' } }, async ($, on) => {
   engine(on)
   const ui = await $.ui.mount(prompt('hi'))
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(ui)).toBe(true)
   await ui.unmount()
 })
 
@@ -1473,7 +1470,7 @@ test('clock with promptStyle off stamps the engine row', { options: { clock: '24
 test('task notifications are not drawn as your prompt', async ($, on) => {
   engine(on)
   const ui = await $.ui.mount(prompt('task done', 'task-notification'))
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(ui)).toBe(true)
   await ui.unmount()
 })
 
@@ -1489,7 +1486,7 @@ test('an unstamped prompt is yours, a teammate message is not', async ($, on) =>
   expect((await mine.findAll({ type: 'Box' })).some(b => b.props.borderStyle === 'round')).toBe(true)
   await mine.unmount()
   const peer = await $.ui.mount({ ...prompt('from a teammate', 'unclassified' as never), props: { text: 'from a teammate', origin: { kind: 'unclassified' } as never, isExpanded: true, from: { name: 'bob' } as never } })
-  expect(await peer.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(peer)).toBe(true)
   await peer.unmount()
 })
 
@@ -1538,10 +1535,10 @@ test('a prompt with no blank line gains none', async $ => {
 test('a teammate message an SDK host carries is not yours', async ($, on) => {
   engine(on)
   const peer = await $.ui.mount({ ...prompt('from a teammate', 'sdk'), props: { text: 'from a teammate', origin: { kind: 'sdk' } as never, isExpanded: true, from: { name: 'bob' } as never } })
-  expect(await peer.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(peer)).toBe(true)
   await peer.unmount()
   const note = await $.ui.mount({ ...prompt('task done', 'sdk'), props: { text: 'task done', origin: { kind: 'sdk' } as never, isExpanded: true, task: { id: 't-1' } as never } })
-  expect(await note.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(note)).toBe(true)
   await note.unmount()
 })
 
@@ -1581,7 +1578,7 @@ test('toolStyle tree-bold draws one-line narration in bold', { options: { toolSt
 test('slash command output with terminal escape codes is left to the engine', async ($, on) => {
   engine(on)
   const colored = await $.ui.mount({ plugin: 'prismantis', surface: 'terminal', component: 'CommandOutput', props: { command: 'context', args: '', text: '\u001b[1mContext Usage\u001b[22m\n\u001b[38;5;246m⛁ 3.8k tokens\u001b[39m', isErrored: false } })
-  expect(await colored.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(colored)).toBe(true)
   await colored.unmount()
 })
 
@@ -1700,7 +1697,7 @@ for (const toolOutput of ['full', 'quiet'] as const) {
       expect((await row(/^5 - const b = 2$/))?.props.backgroundColor).toBe(diffTint(t.codeText, t.codeFlag))
       expect((await row(/^4   const a = 1$/))?.props.backgroundColor).toBeUndefined()
       expect((await ui.find({ type: 'Text', text: /^const c = 4$/ }))?.props.color).toBe(t.codeText)
-      expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+      expect(await engineIsDrawn(ui)).toBe(false)
       await ui.unmount()
     }
   })
@@ -1745,7 +1742,7 @@ test('edits the card cannot parse, failed edits and other tools go to the engine
   for (const surface of ['terminal', 'desktop'] as const) {
     for (const [tool, output, isErrored] of [['Edit', 'File updated', false], ['Edit', null, false], ['Edit', undefined, false], ['Write', patch, true], ['Read', patch, false]] as const) {
       const ui = await $.ui.mount(editResult(surface, tool, output, isErrored))
-      expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+      expect(await engineIsDrawn(ui)).toBe(true)
       await ui.unmount()
     }
   }
@@ -1754,7 +1751,7 @@ test('edits the card cannot parse, failed edits and other tools go to the engine
 test('edits keep the engine diff when tool rows are off', { options: { toolRows: false } }, async ($, on) => {
   engine(on)
   const ui = await $.ui.mount(editResult('terminal', 'Edit', patch))
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(ui)).toBe(true)
   await ui.unmount()
 })
 
@@ -1803,7 +1800,7 @@ for (const toolOutput of ['full', 'quiet'] as const) {
       expect((await ui.find({ type: 'Text', text: /^NOTES\.md$/ }))?.props.color).toBe(t.path)
       expect((await ui.find({ type: 'Text', text: /^const c = 4$/ }))?.props.color).toBe(t.codeText)
       expect((await ui.find({ type: 'Text', text: /^… \+2 more files$/ }))?.props.dimColor).toBe(true)
-      expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+      expect(await engineIsDrawn(ui)).toBe(false)
       expect((await ui.findAll({ type: 'Text', text: /^  ⎿  $/ })).length).toBe(1)
       await ui.unmount()
     }
@@ -1812,15 +1809,14 @@ for (const toolOutput of ['full', 'quiet'] as const) {
 
 test('a shell edit with output keeps the engine output, without the engine diff, above the cards', async ($, on) => {
   const seen: unknown[] = []
-  on('ui.render', ($, e) => {
+  on('ui.render', (_, e) => {
     seen.push(e.props && 'output' in e.props ? e.props.output : undefined)
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
+    return { type: 'engine', ref: 0 }
   })
   for (const surface of ['terminal', 'desktop'] as const) {
     seen.length = 0
     const ui = await $.ui.mount(editResult(surface, 'Bash', bashEdit('patched 2 files')))
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+    expect(await engineIsDrawn(ui)).toBe(true)
     expect(await ui.find({ type: 'Text', text: /^\+2$/ })).toBeDefined()
     expect(seen).toEqual([{ stdout: 'patched 2 files', stderr: '', interrupted: false }])
     expect(await ui.find({ type: 'Text', text: /^ {5}$/ })).toBeDefined()
@@ -1833,7 +1829,7 @@ test('toolOutput quiet keeps a shell edit diff under the first lines of its outp
   const ui = await $.ui.mount(editResult('terminal', 'Bash', bashEdit('patched 2 files')))
   expect(await ui.find({ type: 'Text', text: /^patched 2 files$/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /^\+2$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(ui)).toBe(false)
   await ui.unmount()
 })
 
@@ -1855,7 +1851,7 @@ test('failed shell edits, diffs the card cannot read and tool rows off go to the
   for (const surface of ['terminal', 'desktop'] as const) {
     for (const [output, isErrored] of [[bashEdit(), true], [{ stdout: '', stderr: '', bashEditDiff: { files: [], moreFiles: 0, unavailable: true } }, false], [{ stdout: '', stderr: '', bashEditDiff: { files: [{ filePath: '/tmp/a', hunks: 'x' }], moreFiles: 0 } }, false]] as const) {
       const ui = await $.ui.mount(editResult(surface, 'Bash', output, isErrored))
-      expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+      expect(await engineIsDrawn(ui)).toBe(true)
       await ui.unmount()
     }
   }
@@ -1876,7 +1872,7 @@ for (const toolOutput of ['full', 'quiet'] as const) {
       for (const surface of ['terminal', 'desktop'] as const) {
         for (const [tool, output] of [['Write', writeNew('/tmp/new.ts', ts(25))], ['Write', writeNew('/tmp/empty.ts', [])], ...held] as const) {
           const ui = await $.ui.mount(editResult(surface, tool, output))
-          expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+          expect(await engineIsDrawn(ui)).toBe(true)
           expect(await ui.find({ type: 'Text', text: /^\+ $/ })).toBeUndefined()
           await ui.unmount()
         }
@@ -1891,7 +1887,7 @@ test('a write held for review goes to the engine on Claude Code 2.1.295 too', as
   for (const surface of ['terminal', 'desktop'] as const) {
     for (const [tool, output] of held) {
       const ui = await $.ui.mount(editResult(surface, tool, output))
-      expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+      expect(await engineIsDrawn(ui)).toBe(true)
       await ui.unmount()
     }
   }
@@ -1939,7 +1935,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
       await ui.press({ key: 'fold.rows' })
       expect((await rowsOf(ui)).length).toBe(25)
     }
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     await ui.unmount()
   })
 }
@@ -2077,7 +2073,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect((await ui.find({ key: 'fold' }))?.props).toMatchObject({ variant: 'secondary', label: '+2 more lines' })
     await ui.press({ key: 'fold' })
     expect((await rowsOf(ui)).length).toBe(12)
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     await ui.unmount()
   })
 
@@ -2135,7 +2131,7 @@ const takesTextButtons = async ($: Parameters<TestBody>[0]): Promise<boolean> =>
   if (!drawn) throw new Error('the Button probe drew nothing: call engine(on) before any other ui.render hook')
   return true
 }
-const drewItself = async (ui: { find: (q: { type: string; text: RegExp }) => Promise<unknown> }) => expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+const drewItself = async (ui: Parameters<typeof engineIsDrawn>[0]) => expect(await engineIsDrawn(ui)).toBe(false)
 
 test('shell edits tell new, removed and renamed files apart from changed ones', () => {
   const kinds = (...files: unknown[]) => bashEdits(shellFiles(...files))?.files.map(f => (f.kind === 'renamed' ? `${f.path} → ${f.to}` : `${f.kind} ${f.path}`))
@@ -2165,7 +2161,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const fold = await ui.find({ key: 'fold0' })
     expect([fold?.type, fold?.props.variant, fold?.props.label]).toEqual(['Button', 'secondary', '+4 more lines'])
     expect((await ui.find({ key: 'fold0.rows' }))?.text.split('\n')[0]).toBe(surface === 'terminal' ? 'Created notes.py (14 lines)' : undefined)
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     await ui.press({ key: 'fold0' })
     expect(await rowsOf(ui)).toEqual(numberedRows(body, '+'))
     expect((await ui.find({ key: 'fold0' }))?.props.label).toBe('show less')
@@ -2183,7 +2179,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await ui.find({ type: 'Text', text: /^Created empty\.txt \(empty\)$/ })).toBeDefined()
     expect(await rowsOf(ui)).toEqual(['1 + only'])
     expect(await ui.find({ type: 'Button' })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     await ui.unmount()
   })
 
@@ -2358,7 +2354,7 @@ test('changed files beside new ones still draw as diff cards, notes and all', as
   expect((await ui.find({ type: 'Box', text: /^6 \+ const c = 4$/ }))?.props.backgroundColor).toBe(diffTint(t.codeText, t.number))
   expect(await ui.find({ type: 'Text', text: /^Created empty\.txt \(empty\)$/ })).toBeDefined()
   expect(await ui.find({ text: /^Deleted old\.txt \(1 line\)$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+  expect(await engineIsDrawn(ui)).toBe(false)
   await ui.unmount()
 })
 
@@ -2825,7 +2821,7 @@ test('an opened card of dense lines stays under the engine\'s 20000-node ceiling
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount(editResult(surface, 'Edit', { filePath: '/tmp/data.json', structuredPatch: [{ oldStart: 1, newStart: 1, lines: dense(450) }] }))
     await ui.press({ key: 'fold' })
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     expect(nodeCount(await ui.drawn())).toBeLessThan(20000)
     expect((await tokensOf(ui, /^\{"k0": 0, /)).length).toBeGreaterThan(0)
     expect((await ui.find({ type: 'Text', text: /^\{"k0": 4788, / }))?.children).toHaveLength(1)
@@ -2840,7 +2836,7 @@ test('five opened shell edit cards of dense lines share one node allowance and s
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount(editResult(surface, 'Bash', { stdout: '', stderr: '', interrupted: false, bashEditDiff: { files, moreFiles: 0 } }))
     for (let f = 0; f < 5; f++) await ui.press({ key: `fold${f}` })
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     expect(nodeCount(await ui.drawn())).toBeLessThan(20000)
     await ui.unmount()
   }
@@ -2890,7 +2886,7 @@ test('a no-newline marker in a shell edit diff draws harmlessly as its own row',
   const hunks = [{ oldStart: 1, newStart: 1, oldLines: 1, newLines: 1, lines: ['-old', '\\ No newline at end of file', '+new', '\\ No newline at end of file'] }]
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount(editResult(surface, 'Bash', { stdout: '', stderr: '', interrupted: false, bashEditDiff: { files: [{ filePath: '/tmp/x.txt', hunks }], moreFiles: 0 } }))
-    expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeUndefined()
+    expect(await engineIsDrawn(ui)).toBe(false)
     expect(await ui.find({ type: 'Text', text: /\+1 −1$/ })).toBeDefined()
     expect((await ui.findAll({ type: 'Text', text: /^ No newline at end of file$/ })).length).toBe(2)
     await ui.unmount()
@@ -2932,7 +2928,7 @@ test('shell edit cards carry the notes Claude Code gives its own diff', async ($
 test('shell edits keep the engine diff when tool rows are off', { options: { toolRows: false } }, async ($, on) => {
   engine(on)
   const ui = await $.ui.mount(editResult('terminal', 'Bash', bashEdit()))
-  expect(await ui.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(ui)).toBe(true)
   expect(await ui.find({ type: 'Text', text: /^\+2$/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -2953,7 +2949,7 @@ test('an expanded shell row whose output is an error string shows that string', 
     component: 'ToolUse',
     props: { ...call('Bash', { command: 'cat /root/x' }, 'exp-err'), isErrored: true, output: 'Error: permission denied' },
   })
-  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(row)).toBe(true)
   await row.unmount()
 })
 
@@ -3384,10 +3380,7 @@ test('/prismantis demo stays English when LANG names no showcase language', asyn
 test('a narrow pane adds its width to the render hint, a wide one does not', async ($, on) => {
   const seen: (readonly string[] | undefined)[] = []
   mock.env(on, {})
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   on('prompt.submit', (_, e) => {
     seen.push(e.context)
     return { text: e.text, context: e.context }
@@ -3409,7 +3402,7 @@ test('in the ctrl+o transcript a shell row goes to the engine whole, so its outp
     component: 'ToolUse',
     props: { ...call('Bash', { command: 'ls -la' }, 'fx-2'), ...{ isExpanded: true }, output: { stdout: 'a\nb', stderr: '', interrupted: false } } as never,
   })
-  expect(await row.find({ type: 'Text', text: /^engine$/ })).toBeDefined()
+  expect(await engineIsDrawn(row)).toBe(true)
   expect(await row.find({ type: 'Text', text: /^a$/ })).toBeUndefined()
   await row.unmount()
 })

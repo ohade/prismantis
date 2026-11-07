@@ -1,4 +1,4 @@
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test } from './testing'
 import type { TestBody } from 'claude-code/testing'
 
 import type { Inline } from '../hooks/markdown'
@@ -884,10 +884,7 @@ const toolCard = (tool: string, output: unknown) => ({ plugin: 'prismantis', sur
 
 for (const rtl of ['iterm', 'warp'] as const)
   test(`a code row with only Hebrew in it stays in its column on ${rtl}: the gutter ends in a braille blank on iTerm, so the terminal does not mirror the row`, { options: { rtl } }, async ($, on) => {
-    on('ui.render', ($, e) => {
-      const { Text } = $.ui.resolve(e)
-      return <Text>engine</Text>
-    })
+    on('ui.render', () => ({ type: 'engine', ref: 0 }))
     claudeAt(on, '2.1.295')
     const blank = rtl === 'iterm' ? '⠀' : ' '
     const edit = await $.ui.mount(toolCard('Edit', { filePath: '/tmp/notes.md', structuredPatch: [{ oldStart: 4, newStart: 4, lines: [' keep this', '-שלום עולם', '+שלום עולם חדש'] }] }))
@@ -952,10 +949,7 @@ const shellCall = (id: string, command: string) => ({ tool_use_id: id, tool: 'Ba
 
 for (const rtl of ['iterm', 'warp'] as const)
   test(`a shell output line with only Hebrew in it stays after its gutter on ${rtl}: the gutter ends in a braille blank on iTerm`, { options: { rtl, toolOutput: 'quiet' } }, async ($, on) => {
-    on('ui.render', ($, e) => {
-      const { Text } = $.ui.resolve(e)
-      return <Text>engine</Text>
-    })
+    on('ui.render', () => ({ type: 'engine', ref: 0 }))
     const blank = rtl === 'iterm' ? '⠀' : ' '
     const quiet = await $.ui.mount({ ...toolCard('Bash', { stdout: 'שלום עולם\nend\n', stderr: '' }), props: { tool_use_id: `q-${rtl}`, tool: 'Bash', output: { stdout: 'שלום עולם\nend\n', stderr: '' }, isErrored: false } })
     expect(await quiet.find({ type: 'Box', text: new RegExp(`^  ⎿ ${blank}שלום עולם$`) })).toBeDefined()
@@ -979,10 +973,7 @@ const expandShell = async ($: Parameters<TestBody>[0], id: string, command: stri
 const longHebrew = Array(6).fill('שלום עולם').join(' ')
 
 test('on iTerm a long Hebrew command and output line in an expanded shell call wrap into rows that fit the box and each open with a braille blank', { options: { rtl: 'iterm' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const expanded = await expandShell($, 'wi', `echo '${longHebrew}'`, `${longHebrew}\nשם\tגיל`)
   const command = (await expanded.findAll({ type: 'Box', text: /^(●Bash\(| ⠀)/ })).filter(r => r.props.flexDirection === 'row' && !/[│╭╰]/.test(r.text)).map(r => r.text)
   expect(command.length).toBeGreaterThan(1)
@@ -1003,10 +994,7 @@ test('on iTerm a long Hebrew command and output line in an expanded shell call w
 })
 
 test('on warp a long Hebrew command and output line in an expanded shell call stay one row each, left to the terminal', { options: { rtl: 'warp' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const expanded = await expandShell($, 'ww', `echo '${longHebrew}'`, longHebrew)
   const command = (await expanded.findAll({ type: 'Box', text: /^(●Bash\(| [ ⠀])/ })).filter(r => r.props.flexDirection === 'row' && !/[│╭╰]/.test(r.text)).map(r => r.text)
   expect(command).toHaveLength(1)
@@ -1016,10 +1004,7 @@ test('on warp a long Hebrew command and output line in an expanded shell call st
 })
 
 test('on iTerm a single Hebrew output line too long for 120 rows is cut there and says so', { options: { rtl: 'iterm' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const expanded = await expandShell($, 'big', 'ls', Array(2000).fill('שלום עולם').join(' '))
   expect((await expanded.findAll({ type: 'Box', text: /^⠀\S/ })).filter(r => r.props.flexDirection === 'row')).toHaveLength(120)
   expect(await expanded.find({ type: 'Box', text: /^ … \+1 lines$/ })).toBeDefined()
@@ -1027,10 +1012,7 @@ test('on iTerm a single Hebrew output line too long for 120 rows is cut there an
 })
 
 test('on iTerm the last of the 120 rows shows a cantillated Hebrew line whole when it fits, never a broken letter', { options: { rtl: 'iterm' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const line = 'שָּׁ֑'.repeat(20)
   const expanded = await expandShell($, 'pts', 'ls', `${Array(119).fill('x').join('\n')}\n${line}`)
   expect(await expanded.find({ type: 'Box', text: new RegExp(`^⠀${line}$`) })).toBeDefined()
@@ -1039,10 +1021,7 @@ test('on iTerm the last of the 120 rows shows a cantillated Hebrew line whole wh
 })
 
 test('on iTerm a Hebrew output line that is one letter with a huge run of points is cut and says so', { options: { rtl: 'iterm' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const expanded = await expandShell($, 'marks', 'ls', `ש${'\u05B8'.repeat(200000)}`)
   expect(await expanded.find({ type: 'Box', text: /^ … \+1 lines$/ })).toBeDefined()
   expect((await expanded.findAll({ type: 'Text' })).every(t => t.text.length < 1000)).toBe(true)
@@ -1051,10 +1030,7 @@ test('on iTerm a Hebrew output line that is one letter with a huge run of points
 
 for (const rtl of ['iterm', 'warp'] as const)
   test(`a failed tool's Hebrew reason stays after its ⎿ on ${rtl}: the gutter ends in a braille blank on iTerm`, { options: { rtl, toolStyle: 'tree-dim', toolOutput: 'quiet' } }, async ($, on) => {
-    on('ui.render', ($, e) => {
-      const { Text } = $.ui.resolve(e)
-      return <Text>engine</Text>
-    })
+    on('ui.render', () => ({ type: 'engine', ref: 0 }))
     const blank = rtl === 'iterm' ? '⠀' : ' '
     const failed = await $.ui.mount({ ...toolCard('Bash', 'Exit code 1\nהקובץ לא נמצא'), props: { tool_use_id: `f-${rtl}`, tool: 'Bash', output: 'Exit code 1\nהקובץ לא נמצא', isErrored: true } })
     expect(await failed.find({ type: 'Text', text: new RegExp(`^  ⎿${blank}הקובץ לא נמצא$`) })).toBeDefined()

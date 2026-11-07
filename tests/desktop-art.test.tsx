@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, test } from './testing'
 
 import { takesMonoText } from '../hooks/render'
 import { claudeAt } from './claude-version'

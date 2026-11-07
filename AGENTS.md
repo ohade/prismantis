@@ -72,7 +72,7 @@ Dependencies and licenses:
 ## Test-kit gotchas
 
 - `ui.find({ text: 'x' })` matches substrings, so it returns the parent line. Anchor it: `text: /^x$/`.
-- A test whose plugin calls `next(e)` needs an engine stand-in: `on('ui.render', ($, e) => <Text>engine</Text>)`, returning a tree, not `null`.
+- Tests import the runtime test kit from `./testing`, which supplies the native engine stand-in when no explicit renderer is registered. An explicit native stand-in returns `{ type: 'engine', ref: 0 }`, not a Text element or `null`. Use `engineIsDrawn` to check native fallback in a mounted subtree.
 - Loop visual tests over `['terminal', 'desktop'] as const`.
 
 ## Adding an option

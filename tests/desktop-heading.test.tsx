@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, test } from './testing'
 
 import { width } from '../hooks/layout'
 import { PRESETS } from '../hooks/presets'

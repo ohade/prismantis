@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { engineIsDrawn, expect, test } from './testing'
 import type { TestBody } from 'claude-code/testing'
 
 import { displayText, parse } from '../hooks/markdown'
@@ -123,13 +123,10 @@ test('an untagged block without a box glyph still reads as shell', async $ => {
 })
 
 test('disabled leaves the engine renderer alone', { options: { enabled: false } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const ui = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^Service$/ })).toBeUndefined()
-  expect((await ui.find({ type: "Text", text: /^engine$/ }))?.text).toBe("engine")
+  expect(await engineIsDrawn(ui)).toBe(true)
   await ui.unmount()
 })
 
@@ -144,16 +141,13 @@ for (const surfaces of [undefined, 'all', 'desktop-app, nope', '']) {
 }
 
 test('surfaces terminal leaves the desktop to the engine', { options: { surfaces: ' Terminal ,bogus' } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const desktop = await $.ui.mount({ ...draw(TABLE), surface: 'desktop' })
   expect(await desktop.find({ type: 'Text', text: /^Service$/ })).toBeUndefined()
-  expect((await desktop.find({ type: 'Text', text: /^engine$/ }))?.text).toBe('engine')
+  expect(await engineIsDrawn(desktop)).toBe(true)
   await desktop.unmount()
   const row = await $.ui.mount({ plugin: 'prismantis', surface: 'desktop', component: 'TurnDuration', props: { word: 'Cooked', durationMs: 4000 } })
-  expect((await row.find({ type: 'Text', text: /^engine$/ }))?.text).toBe('engine')
+  expect(await engineIsDrawn(row)).toBe(true)
   await row.unmount()
   const terminal = await $.ui.mount({ ...draw(TABLE), surface: 'terminal' })
   expect((await terminal.find({ type: 'Text', text: /^Service$/ }))?.text).toBe('Service')
@@ -227,12 +221,9 @@ test('file tools show the path in the path color and failures say so', async $ =
 })
 
 test('toolRows off leaves tool rows to the engine', { options: { toolRows: false } }, async ($, on) => {
-  on('ui.render', ($, e) => {
-    const { Text } = $.ui.resolve(e)
-    return <Text>engine</Text>
-  })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }))
   const ui = await $.ui.mount({ ...toolRow('Bash', { command: 'ls' }), surface: 'terminal' })
-  expect((await ui.find({ type: 'Text', text: /^engine$/ }))).toBeDefined()
+  expect(await engineIsDrawn(ui)).toBe(true)
   await ui.unmount()
 })
 

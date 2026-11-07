@@ -10,6 +10,7 @@ import type { ClipboardBackend, HelperCommand } from './clipboard'
 import { clipboardCommand, drawsImages, imageCommand } from './clipboard'
 import { FIGURE_HINT } from './figure'
 import { drawDiagrams } from './mermaid'
+import { composeEngine } from './render-chain'
 import type { CopyButton, DrawPaste, Fold, Hues, TerminalEnv } from './render'
 import { MARK, bashEdits, lineCount, drawMath, drawsHyperlinks, editNotes, fileRoot, hasShellOutput, instanceKey, isReadOnlyCall, leftToEngine, markerRoom, mirrored, noteTip, pasteLang, pathsToProbe, toolPathsToProbe, remember, rememberCall, renderBashEdits, renderBlocks, renderDiffCard, renderExpandedShell, renderFailure, renderReply, renderShellResult, renderToolGroup, renderToolRow, renderTurnDuration, renderUserPrompt, replyRoom, replyStyleFor, takesClickableMarks, takesEditorLinks, takesHttpLinks, takesMonoText, withoutBashEdits } from './render'
 import type { SetupStep } from './help'
@@ -1026,7 +1027,8 @@ export const register: Register = (on, options) => {
         </el.Box>
       )
     }
-    return renderUserPrompt(el, drawn, e.props.text, columns, time, paste)
+    const body = renderUserPrompt(el, drawn, e.props.text, columns, time, paste)
+    return composeEngine(await next(e), body)
   })
 
   on('ui.render', { component: 'AssistantMessage', ...here }, async ($, e, next) => {
@@ -1045,7 +1047,8 @@ export const register: Register = (on, options) => {
     const columns = columnsOf(e.viewport, surfaceStyle)
     const framed = replyStyleFor(surfaceStyle, e.props.text)
     const drawn = drawMarkdown($, el, narration ? { ...framed, narration } : framed, blocks, columns - replyRoom(framed), math, pictures, reply, open, { id: e.requestId, press: reach.marks })
-    return renderReply(el, framed, drawn, e.props.isFirstOfReply === true, columns, corner)
+    const body = renderReply(el, framed, drawn, e.props.isFirstOfReply === true, columns, corner)
+    return composeEngine(await next(e), body)
   })
 
   on('prismantis.markdown', here, async ($, e, next) => {

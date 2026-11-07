@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, mock, test as base } from 'claude-code/testing'
+import { expect, mock, test as base } from './testing'
 
 import { keepFormulas, padFor, ratexColor } from '../hooks/latex'
 import { parse, texText } from '../hooks/markdown'
