@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.45.3-ohade.1] - 2026-11-07
+
+### Changed
+
+- Give this fork's reviewed fix a distinct version so existing 0.45.2 installations can update.
+
+### Fixed
+
+- Preserve downstream message rendering and callbacks, allowing Track to observe prompt and answer rows for navigation ([fork change](https://github.com/ohade/prismantis/commit/daf057fed7cf8dc70f2f32c78976e355f6458016)).
+
 ## [0.45.2] - 2026-11-07
 
 ### Changed
