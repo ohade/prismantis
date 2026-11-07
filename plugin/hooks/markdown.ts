@@ -47,6 +47,7 @@ const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
 const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/
 const FENCE = /^\s*(`{3,}|~{3,})\s*([\w+-]*)/
 const NOTE_DEF = /^\[\^([^\]\s]+)\]:\s*(.*)$/
+const COMMENT_LINE = /^\s*<!--.*-->\s*$/
 const TAG_LINE = /^\s*<\/?(?!br\b(?!>))[a-z][\w-]*(?:\s[^<>]*)?>\s*$/i
 const SETEXT = /^ {0,3}(?:=+|-+)\s*$/
 const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹'
@@ -438,6 +439,8 @@ const attachLine = (lines: string[], i: number, list: ListDraft, hl: Highlight, 
   return i
 }
 
+const isBreakLine = (line: string): boolean => line.trim() === '' || COMMENT_LINE.test(line)
+
 const lineBlock = (line: string, hl: Highlight): Draft | null => {
   if (TAG_LINE.test(line)) return { kind: 'paragraph', inline: [{ kind: 'dim', text: line.trim() }] }
   const heading = /^(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/.exec(line)
@@ -480,7 +483,7 @@ const parseBlocks = (source: string, hl: Highlight, depth = 0): Block[] => {
       i = math.end
       continue
     }
-    if (line.trim() === '') {
+    if (isBreakLine(line)) {
       flush(i)
       continue
     }

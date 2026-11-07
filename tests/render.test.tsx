@@ -1016,3 +1016,10 @@ test('a deeply nested list stops indenting at half the width, so its deepest ite
   expect(await ui.find({ type: 'Text', text: /^level 50$/ })).toBeDefined()
   await ui.unmount()
 })
+
+test('an HTML comment on a line of its own draws nothing and keeps the text around it in its own paragraphs', async () => {
+  const blocks = parse('<!-- A7:start -->\nThe answer.\n<!-- A7:end -->\nAfter it.\n\n  <!-- note -->  \n\nLast.', { numbers: false, paths: false })
+  expect(JSON.stringify(blocks)).not.toContain('<!--')
+  expect(blocks.map(b => b.kind)).toEqual(['paragraph', 'paragraph', 'paragraph'])
+  expect(blocks.map(b => (b.kind === 'paragraph' ? displayText(b.inline) : ''))).toEqual(['The answer.', 'After it.', 'Last.'])
+})
