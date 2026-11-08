@@ -156,6 +156,8 @@ const firstDrawn = async ($: EngineInterface, id: string): Promise<number> => {
   return now
 }
 
+const tintOf = async ($: EngineInterface, id: string): Promise<string | undefined> => (await $.state.get({ plugin: 'prismantis', key: 'tints', id })).value ?? undefined
+
 type Typeset = Exclude<Formula, { error: true }> & { tex: string }
 
 const showsImages = async ($: EngineInterface): Promise<boolean> => {
@@ -768,7 +770,7 @@ const hintsFor = (style: Style, latex: LatexSession, nth: number, pane?: number)
 const localeOf = async ($: EngineInterface, asked?: string): Promise<string> => asked ?? (await $.env.get('LC_ALL').catch(() => undefined)) ?? (await $.env.get('LANG').catch(() => undefined)) ?? ''
 
 export const register: Register = (on, options) => {
-  on('engine.create', async (_$, e, next) => ({ ...(await next(e)), prismantis: { markdown: async () => undefined } }))
+  on('engine.create', async (_$, e, next) => ({ ...(await next(e)), prismantis: { markdown: async () => undefined, reply: async () => undefined, tint: async () => undefined } }))
   if (options.enabled === false) return
   const firstTheme = pickTheme(options.theme)
   const style = resolveStyle({ ...options, theme: firstTheme })
@@ -1027,7 +1029,7 @@ export const register: Register = (on, options) => {
         </el.Box>
       )
     }
-    const body = renderUserPrompt(el, drawn, e.props.text, columns, time, paste)
+    const body = renderUserPrompt(el, drawn, e.props.text, columns, time, paste, await tintOf($, e.requestId))
     return composeEngine(await next(e), body)
   })
 
@@ -1035,6 +1037,7 @@ export const register: Register = (on, options) => {
     if (e.surface === 'terminal' && e.viewport?.columns) pane = e.viewport.columns
     const blocks = parseCached(e.props.text)
     if (blocks.length === 0) return next(e)
+    const lit = await tintOf($, e.requestId)
     const el = $.ui.resolve(e)
     const narration = style.toolStyle === 'tree-bold' && blocks.length === 1 && blocks[0]!.kind === 'paragraph'
     const reach = await linkReach($, probes, style)
@@ -1047,7 +1050,7 @@ export const register: Register = (on, options) => {
     const columns = columnsOf(e.viewport, surfaceStyle)
     const framed = replyStyleFor(surfaceStyle, e.props.text)
     const drawn = drawMarkdown($, el, narration ? { ...framed, narration } : framed, blocks, columns - replyRoom(framed), math, pictures, reply, open, { id: e.requestId, press: reach.marks })
-    const body = renderReply(el, framed, drawn, e.props.isFirstOfReply === true, columns, corner)
+    const body = renderReply(el, framed, drawn, e.props.isFirstOfReply === true, columns, corner, lit)
     return composeEngine(await next(e), body)
   })
 
@@ -1058,5 +1061,36 @@ export const register: Register = (on, options) => {
     const { Box } = el
     const surfaceStyle = forSurface(style, e, await linkReach($, probes, style))
     return { value: <Box flexDirection="column" rowGap={1} {...fullWidth(e.text)}>{drawMarkdown($, el, { ...surfaceStyle, copyButtons: false }, blocks, Math.max(MIN_COLUMNS, e.columns || 0))}</Box> }
+  })
+
+  on('prismantis.tint', async ($, e) => {
+    await $.state.set({ plugin: 'prismantis', key: 'tints', id: e.key }, e.color)
+    return { value: undefined }
+  })
+
+  on('prismantis.reply', here, async ($, e, next) => {
+    const parts = e.segments.map(segment => ({ segment, blocks: segment.kind === 'markdown' ? parseCached(segment.text) : [] }))
+    if (parts.every(part => part.blocks.length === 0)) return next(e)
+    const lit = await tintOf($, e.requestId)
+    const lits = await Promise.all(parts.map(part => (part.segment.kind === 'markdown' ? tintOf($, part.segment.key) : undefined)))
+    const el = $.ui.resolve({ surface: e.surface, component: 'AssistantMessage' })
+    const reach = await linkReach($, probes, style)
+    const surfaceStyle = { ...(await withFoundPaths($, pathChecks, forSurface(style, e, reach), parts.flatMap(part => part.blocks))), images: await imagesOn($, probes, e.surface) }
+    const open = await read($, unfolded)
+    const columns = columnsOf({ columns: e.columns }, surfaceStyle)
+    const framed = replyStyleFor(surfaceStyle, e.text)
+    const drawn: RenderElement[] = []
+    for (const [index, { segment, blocks }] of parts.entries()) {
+      if (segment.kind === 'note') {
+        drawn.push(<el.Text key={segment.key} dimColor>{segment.text}</el.Text>)
+        continue
+      }
+      const shade = lits[index]
+      const math = await mathOfBlocks($, latex, e.surface, blocks)
+      const pictures = await picturesOf($, style, probes, e.surface, blocks)
+      const body = drawMarkdown($, el, framed, blocks, columns - replyRoom(framed), math, pictures, undefined, open, { id: `${e.requestId}:${segment.key}`, press: reach.marks })
+      drawn.push(<el.Box key={segment.key} flexDirection="column" rowGap={1} {...(shade ? { backgroundColor: shade } : {})}>{body}</el.Box>)
+    }
+    return { value: renderReply(el, framed, drawn, e.isFirstOfReply, columns, false, lit) }
   })
 }

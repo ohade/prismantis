@@ -2946,7 +2946,10 @@ const promptMark = (el: ElementTable, style: Style, rtl: boolean, tall: number):
   return style.promptStyle === 'bar' && tall > 1 ? quoteBar(el, glyph, style.theme.accent, tall) : <el.Text color={style.theme.accent} bold>{glyph}</el.Text>
 }
 
-export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste): RenderElement => {
+const tinted = (el: ElementTable, key: string, tint: string | undefined, child: RenderElement): RenderElement =>
+  tint ? <el.Box key={key} flexDirection="column" backgroundColor={tint}>{child}</el.Box> : child
+
+export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, columns: number, time?: string, paste?: DrawPaste, tint?: string): RenderElement => {
   const { Box, Text } = el
   const pastes: string[] = []
   const text = typed.replace(PASTE, (_, _id, body: string) => `\0${pastes.push(body) - 1}\0`).replace(/^\n+|\n+$/g, '')
@@ -2970,7 +2973,8 @@ export const renderUserPrompt = (el: ElementTable, style: Style, typed: string, 
     </Box>
   )
   const stamp = time === undefined ? null : <Box flexShrink={0}><Text color={t.codeComment}>{rtl ? ` ${time}` : `${time} `}</Text></Box>
-  const content = stamp === null ? body : <Box flexDirection="row">{rtl ? body : stamp}{rtl ? stamp : body}</Box>
+  const stamped = stamp === null ? body : <Box flexDirection="row">{rtl ? body : stamp}{rtl ? stamp : body}</Box>
+  const content = tinted(el, 'prompt-tint', tint, stamped)
   if (isChatPrompt(style)) return chatPrompt(el, style, content, chatSize(style, hebrew, marked.map(inlineText), columns, time, rows.some(line => own(line) !== undefined)))
   if (style.promptStyle === 'wide') {
     return <Box borderStyle="round" borderColor={t.accent} paddingX={1} alignSelf={rtl ? 'flex-end' : 'flex-start'} width="100%">{content}</Box>
@@ -3025,9 +3029,9 @@ const replyFrame = (el: ElementTable, style: Style, body: RenderElement, columns
   return <el.Box flexDirection="column" flexGrow={1} paddingX={1} borderStyle="round" borderColor={claudeColor(t)} borderDimColor backgroundColor={fill}>{body}</el.Box>
 }
 
-export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement[], first: boolean, columns: number, corner: boolean): RenderElement => {
+export const renderReply = (el: ElementTable, style: Style, drawn: RenderElement[], first: boolean, columns: number, corner: boolean, tint?: string): RenderElement => {
   const room = corner ? <el.Box width={MARK} flexShrink={0} /> : null
-  const body = <el.Box flexDirection="column" rowGap={1} flexGrow={1}>{drawn}</el.Box>
+  const body = <el.Box key="reply-body" flexDirection="column" rowGap={1} flexGrow={1} {...(tint ? { backgroundColor: tint } : {})}>{drawn}</el.Box>
   if (replyLook(style) === 'off') {
     return (
       <el.Box key="msg" flexDirection="row">
