@@ -1076,9 +1076,8 @@ export const register: Register = (on, options) => {
     const el = $.ui.resolve({ surface: e.surface, component: 'AssistantMessage' })
     const reach = await linkReach($, probes, style)
     const surfaceStyle = { ...(await withFoundPaths($, pathChecks, forSurface(style, e, reach), parts.flatMap(part => part.blocks))), images: await imagesOn($, probes, e.surface) }
-    const open = await read($, unfolded)
     const columns = columnsOf({ columns: e.columns }, surfaceStyle)
-    const framed = replyStyleFor(surfaceStyle, e.text)
+    const framed = { ...replyStyleFor(surfaceStyle, e.text), copyButtons: false }
     const drawn: RenderElement[] = []
     for (const [index, { segment, blocks }] of parts.entries()) {
       if (segment.kind === 'note') {
@@ -1088,7 +1087,7 @@ export const register: Register = (on, options) => {
       const shade = lits[index]
       const math = await mathOfBlocks($, latex, e.surface, blocks)
       const pictures = await picturesOf($, style, probes, e.surface, blocks)
-      const body = drawMarkdown($, el, framed, blocks, columns - replyRoom(framed), math, pictures, undefined, open, { id: `${e.requestId}:${segment.key}`, press: reach.marks })
+      const body = drawMarkdown($, el, framed, blocks, columns - replyRoom(framed), math, pictures, undefined, undefined, { id: `${e.requestId}:${segment.key}`, press: false })
       drawn.push(<el.Box key={segment.key} flexDirection="column" rowGap={1} {...(shade ? { backgroundColor: shade } : {})}>{body}</el.Box>)
     }
     return { value: renderReply(el, framed, drawn, e.isFirstOfReply, columns, false, lit) }
