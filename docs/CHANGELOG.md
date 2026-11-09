@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.45.3-ohade.3] - 2026-11-09
+
+### Fixed
+
+- A segmented reply from another mod keeps its bubble when a segment holds a list, code, a table or a diagram. Those blocks carried copy buttons, fold toggles or note tips, which cannot cross to another mod, so the whole reply came back empty and Track drew its plain fallback. Inside such segments copy buttons, folds and note tips are now left out ([fork change](https://github.com/ohade/prismantis/commit/e101028)).
+
 ## [0.45.3-ohade.2] - 2026-11-08
 
 ### Added
